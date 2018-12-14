@@ -1,7 +1,9 @@
-#l!/usr/bin/env python
+#!/usr/bin/env python
 import rospy
 import math
 from std_msgs.msg import String
+from yellowarm.msg import Angles
+from yellowarm.msg import Goal_pose
 from numpy import pi as PI
 
 class calcIK():
@@ -15,12 +17,12 @@ class calcIK():
              O   theta4
              |
              |   l3
-             O   theta1
+             O   theta3
              |
              |   l2
              O   theta2
              |   l1
-            <=>  theta1
+            <->  theta1
              |   l0
             777  theta0 -- it's fixed
         '''
@@ -38,9 +40,9 @@ class calcIK():
         #actual arm pose.
         is_large = 0.002
 
-        pub = rospy.Publisher('hogehoge', String, queue_size=10)
-        sub = rospy.Subscriber('hogihogi', String, self.main_callback)
-        a_theta_sub = rospy.Subscriber('fugafuga', String, self.a_thetaCB)
+        pub = rospy.Publisher('pub/goal/angles', Angles, queue_size=10)
+        sub = rospy.Subscriber('sub/goal/pose', Goal_pose, self.main_callback)
+        a_theta_sub = rospy.Subscriber('sub/actual/angles', String, self.a_thetaCB)
 
         self.arm_init()
 
@@ -61,19 +63,19 @@ class calcIK():
         self.theta_min.append(rospy.get_param('~theta_4',-1.7303303287350031))
         self.theta_max.append(rospy.get_param('~theta_4', 1.8898643306751100))
 
-    def main_callback(goal_pose, self):
-        self.calc_ik(goal_pose)
+    def main_callback(data, self):
+        self.calc_ik(data,self)
         self.check_limits()
         if self.error_between(self.calculated_goal_position) < self.is_small:
-            while self.error_between(self.actual_position) > self.is_large:
-                self.move_arm()
+            self.move_arm()
         else:
             rospy.loginfo("failed inverse kinematic.")
 
     def a_thetaCB(actual_pose, self):
-        pass
+        for i in range(len(theta)):
+            self.a_theta[i] = actual_pose.theta[i]
 
-    def calc_ik(data):
+    def calc_ik(Angles,self):
         self.theta[1] = math.atan2(data.y, data.x)
         self.A = math.sqrt(math.pow(math.sqrt(math.pow(x,2)+math.pow(y,2))-self.l[4]*math.sin(data.theta),2)
                 +math.pow(data.z+self.l[4]*math.cos(data.theta)-self.l[0]-self.l[1],2))
@@ -118,10 +120,16 @@ class calcIK():
         z = self.l[0] + self.l[1]*math.cos(self.a_theta[1]) + self.l[2]*math.cos(self.a_theta[1]+self.a_theta[2]) + self.l[3]*math.cos(self.a_theta[1]+self.a_theta[2]+self.a_theta[3])
 
     def move_arm():
-        pass
+        self.r = rospy.Rate(10)
+        while self.error_between(self.actual_position) > self.is_large and not rospy.is_shutdown():
+            pub.publish(self.thetax)
+            r.sleep()
 
 #---- main ----
 rospy.init_node('yellowarm')
 
 #Create an instance of yellowarm
 yp = calcIK()
+rate = rospy.Rate(10)
+while not rospy.is_shutdown():
+    rate.sleep()

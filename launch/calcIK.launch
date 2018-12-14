@@ -1,0 +1,3 @@
+<launch>
+    <node pkg="yellowarm" name="calcIK"  type="arm.py"/>
+</launch>
